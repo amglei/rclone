@@ -58,11 +58,52 @@ var (
 	unixShellEscapeRegex = regexp.MustCompile("[^A-Za-z0-9_.,:/\\@\u0080-\uFFFFFFFF\n-]")
 )
 
+// system metadata keys which this backend owns
+//
+// All keys are read only as the SFTP protocol (v3) has no way of
+// setting them and ctime/btime are not reported at all.
+var systemMetadataInfo = map[string]fs.MetadataHelp{
+	"mode": {
+		Help:     "File type and mode",
+		Type:     "octal, unix style",
+		Example:  "100644",
+		ReadOnly: true,
+	},
+	"uid": {
+		Help:     "User ID of owner",
+		Type:     "decimal number",
+		Example:  "1000",
+		ReadOnly: true,
+	},
+	"gid": {
+		Help:     "Group ID of owner",
+		Type:     "decimal number",
+		Example:  "1000",
+		ReadOnly: true,
+	},
+	"atime": {
+		Help:     "Time of last access",
+		Type:     "RFC 3339",
+		Example:  "2006-01-02T15:04:05.999999999Z07:00",
+		ReadOnly: true,
+	},
+	"mtime": {
+		Help:     "Time of last modification",
+		Type:     "RFC 3339",
+		Example:  "2006-01-02T15:04:05.999999999Z07:00",
+		ReadOnly: true,
+	},
+}
+
 func init() {
 	fsi := &fs.RegInfo{
 		Name:        "sftp",
 		Description: "SSH/SFTP",
 		NewFs:       NewFs,
+		MetadataInfo: &fs.MetadataInfo{
+			System: systemMetadataInfo,
+			Help:   `SFTP metadata is read from the SFTP stat info. Times have one-second precision and ctime/btime are not available.`,
+		},
 		Options: []fs.Option{{
 			Name:      "host",
 			Help:      "SSH host to connect to.\n\nE.g. \"example.com\".",
@@ -719,6 +760,15 @@ type Object struct {
 	xxh3sum   *string     // Cached XXH3 checksum
 	xxh128sum *string     // Cached XXH128 checksum
 }
+
+// Directory is a remote SFTP directory that has been stat'd (so it
+// exists) and carries the stat info needed for the Metadataer interface
+type Directory struct {
+	*fs.Dir
+	info os.FileInfo // stat of the directory
+}
+
+var _ fs.Directory = (*Directory)(nil)
 
 // conn encapsulates an ssh client and corresponding sftp client
 type conn struct {
@@ -1589,6 +1639,8 @@ func NewFsWithConnection(ctx context.Context, f *Fs, name string, root string, m
 		SlowHash:                 true,
 		PartialUploads:           true,
 		DirModTimeUpdatesOnWrite: true, // indicate writing files to a directory updates its modtime
+		ReadMetadata:             true,
+		ReadDirMetadata:          true,
 	}).Fill(ctx, f)
 	if !opt.CopyIsHardlink {
 		// Disable server side copy unless --sftp-copy-is-hardlink is set
@@ -1802,7 +1854,10 @@ func (f *Fs) List(ctx context.Context, dir string) (entries fs.DirEntries, err e
 			}
 		}
 		if info.IsDir() {
-			d := fs.NewDir(remote, info.ModTime())
+			d := &Directory{
+				Dir:  fs.NewDir(remote, info.ModTime()),
+				info: info,
+			}
 			entries = append(entries, d)
 		} else {
 			o := &Object{
@@ -2592,6 +2647,53 @@ func (o *Object) setMetadata(info os.FileInfo) {
 	o.modTime = info.Sys().(*sftp.FileStat).Mtime
 	o.size = info.Size()
 	o.mode = info.Mode()
+}
+
+// metadataTimeFormat is the format used for time metadata values
+const metadataTimeFormat = time.RFC3339Nano
+
+// metadataFromFileStat returns metadata from the stat result passed in
+//
+// It returns nil if the info doesn't carry SFTP stat data. The SFTP
+// protocol provides times with one-second precision only and has no way
+// of carrying ctime or btime.
+func metadataFromFileStat(info os.FileInfo) fs.Metadata {
+	fstat, ok := info.Sys().(*sftp.FileStat)
+	if !ok {
+		return nil
+	}
+	return fs.Metadata{
+		"mode":  fmt.Sprintf("%0o", fstat.Mode),
+		"uid":   fmt.Sprintf("%d", fstat.UID),
+		"gid":   fmt.Sprintf("%d", fstat.GID),
+		"atime": time.Unix(int64(fstat.Atime), 0).Format(metadataTimeFormat),
+		"mtime": time.Unix(int64(fstat.Mtime), 0).Format(metadataTimeFormat),
+	}
+}
+
+// Metadata returns metadata for the object
+//
+// The object is re-stat'ed as the stat info isn't cached in the object
+func (o *Object) Metadata(ctx context.Context) (metadata fs.Metadata, err error) {
+	info, err := o.fs.stat(ctx, o.remote)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fs.ErrorObjectNotFound
+		}
+		return nil, fmt.Errorf("stat failed to read metadata: %w", err)
+	}
+	if info.IsDir() {
+		return nil, fs.ErrorIsDir
+	}
+	return metadataFromFileStat(info), nil
+}
+
+// Metadata returns metadata for the directory
+//
+// It returns the metadata gathered by the listing which produced the
+// directory; times have one-second precision
+func (d *Directory) Metadata(ctx context.Context) (metadata fs.Metadata, err error) {
+	return metadataFromFileStat(d.info), nil
 }
 
 // statRemote stats the file or directory at the remote given

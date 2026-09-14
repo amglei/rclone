@@ -20,3 +20,9 @@ __pycache__
 .DS_Store
 resource_windows_*.syso
 .devcontainer
+
+# local fork build/test artifacts
+/termux-packages/
+/termux-packages.wiki/
+/release/
+/.commandcode/

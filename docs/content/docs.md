@@ -2195,6 +2195,20 @@ source doesn't record a birth time, for example Android, where the
 oldest known time is the best available approximation of the file's
 creation time.
 
+This cannot be used together with `--metadata-btime-from`.
+
+See the [metadata section](#metadata) for more info.
+
+### --metadata-btime-from string
+
+When using `--metadata`, if the metadata has no `btime` then set it from
+the named metadata key, one of `atime`, `mtime` or `ctime`. Unlike
+`--metadata-btime-from-oldest` this uses exactly the chosen key rather
+than the oldest of all available times. If the chosen key is missing or
+unparsable then `btime` is left unset.
+
+This cannot be used together with `--metadata-btime-from-oldest`.
+
 See the [metadata section](#metadata) for more info.
 
 ### --modify-window Duration

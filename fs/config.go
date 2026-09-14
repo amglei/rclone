@@ -551,6 +551,11 @@ var ConfigOptionsInfo = Options{{
 	Help:    "Set btime from the oldest of atime, mtime and ctime when btime is missing",
 	Groups:  "Metadata",
 }, {
+	Name:    "metadata_btime_from",
+	Default: "",
+	Help:    "Set btime from this key (atime, mtime or ctime) when btime is missing",
+	Groups:  "Metadata",
+}, {
 	Name:    "partial_suffix",
 	Default: ".partial",
 	Help:    "Add partial-suffix to temporary file name when --inplace is not used",
@@ -683,6 +688,7 @@ type ConfigInfo struct {
 	PartialSuffix              string            `config:"partial_suffix"`
 	MetadataMapper             SpaceSepList      `config:"metadata_mapper"`
 	MetadataBtimeFromOldest    bool              `config:"metadata_btime_from_oldest"`
+	MetadataBtimeFrom          string            `config:"metadata_btime_from"`
 	MaxConnections             int               `config:"max_connections"`
 	NameTransform              []string          `config:"name_transform"`
 	HTTPProxy                  string            `config:"http_proxy"`

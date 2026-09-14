@@ -169,6 +169,20 @@ func setBtimeFromOldest(m Metadata) Metadata {
 	return m
 }
 
+// setBtimeFrom returns m with btime set to the value of key (one of atime,
+// mtime and ctime), unless btime is already set or key is missing/unparsable.
+func setBtimeFrom(m Metadata, key string) Metadata {
+	if m["btime"] != "" {
+		return m
+	}
+	t, err := time.Parse(time.RFC3339Nano, m[key])
+	if err != nil {
+		return m
+	}
+	m.Set("btime", t.Format(time.RFC3339Nano))
+	return m
+}
+
 // GetMetadataOptions from an DirEntry and merge it with any in options
 //
 // If --metadata isn't in use it will return nil.
@@ -186,8 +200,18 @@ func GetMetadataOptions(ctx context.Context, dstFs Fs, o DirEntry, options []Ope
 		return nil, err
 	}
 	metadata.MergeOptions(options)
-	if ci.MetadataBtimeFromOldest {
+	switch {
+	case ci.MetadataBtimeFromOldest && ci.MetadataBtimeFrom != "":
+		return nil, fmt.Errorf("can't use --metadata-btime-from-oldest and --metadata-btime-from together")
+	case ci.MetadataBtimeFromOldest:
 		metadata = setBtimeFromOldest(metadata)
+	case ci.MetadataBtimeFrom != "":
+		switch ci.MetadataBtimeFrom {
+		case "atime", "mtime", "ctime":
+			metadata = setBtimeFrom(metadata, ci.MetadataBtimeFrom)
+		default:
+			return nil, fmt.Errorf("--metadata-btime-from must be one of atime, mtime or ctime, not %q", ci.MetadataBtimeFrom)
+		}
 	}
 	if len(ci.MetadataMapper) != 0 {
 		metadata, err = metadataMapper(ctx, ci.MetadataMapper, dstFs, o, metadata)

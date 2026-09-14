@@ -55,7 +55,7 @@ Verzeichnis-Metadaten überhaupt kopiert werden.)
   nur, wenn der Kernel statx kann). Auf Android 6–10 liefert die Quelle
   `atime`/`mtime`/`ctime`, und der btime-Fallback (Punkt 3) springt ein.
 
-### 3. Neues Flag `--metadata-btime-from-oldest`
+### 3. Neue Flags `--metadata-btime-from-oldest` und `--metadata-btime-from`
 
 - **Wo:** `fs/config.go` (Flag-Registrierung `metadata_btime_from_oldest` +
   Feld `ConfigInfo.MetadataBtimeFromOldest`), `fs/metadata.go`
@@ -74,6 +74,12 @@ Verzeichnis-Metadaten überhaupt kopiert werden.)
 - **Hinweis:** Da jede Inhaltsänderung `ctime` mitsetzt, gilt immer
   `ctime ≥ mtime`, also `min(atime,mtime,ctime) == min(atime,mtime)` — `ctime`
   wird aus Vollständigkeit mitgeführt, ändert das Ergebnis aber praktisch nie.
+- **Zweites Flag `--metadata-btime-from <atime|mtime|ctime>`** (Wo:
+  `fs/config.go`, `fs/metadata.go`, `setBtimeFrom`): setzt `btime` aus genau
+  dem gewählten Key statt aus dem Minimum aller Zeiten. Fehlt der gewählte
+  Key, bleibt `btime` ungesetzt (Original-rclone-Verhalten). Beide Flags sind
+  gegenseitig exklusiv — gemeinsame Nutzung bricht den Transfer mit einem
+  Fehler ab, ungültige Werte ebenso. Tests: `TestMetadataBtimeFrom`.
 
 ### 4. Windows-Schreibseite: kein Code nötig
 
@@ -181,7 +187,7 @@ NDK-Setup.
   ```shell
   TERMUX_PKG_SRCURL=file:///home/builder/termux-packages/sources/rclone
   TERMUX_PKG_SHA256=SKIP_CHECKSUM
-  # -ldflags "-X github.com/rclone/rclone/fs.Version=v${TERMUX_PKG_VERSION}-termux-local"
+  # -ldflags "-X github.com/rclone/rclone/fs.Version=v${TERMUX_PKG_VERSION}-termux-local.1"
   ```
 
   Hintergrund `file://…-dir`: der Container tarrt das Quellverzeichnis bei
@@ -252,7 +258,7 @@ btime → `--metadata-btime-from-oldest` übernimmt).
 
 ```console
 pkg install ./rclone_1.75.1_aarch64.deb   # ersetzt/aktualisiert offizielles rclone
-rclone version                            # → v1.75.1-termux-local
+rclone version                            # → v1.75.1-termux-local.1
 ```
 
 Installiert und geprüft auf einem Testgerät (Android 10, API 29, Kernel 4.14, aarch64, Termux) per `scp` + `apt install -y ./…deb`:
@@ -283,14 +289,20 @@ Alle vier Debs baut man sequenziell in **einer** `docker exec`-Zeile
 für Windows mit Fork-Version und gestripptem Binary (wie offizielle Builds):
 
 ```console
-go build -trimpath -ldflags "-s -w -X github.com/rclone/rclone/fs.Version=v1.75.1-termux-local" -tags noselfupdate -o rclone.exe .
-powershell -Command "Compress-Archive -Path rclone.exe,README.md,AGENTS.md,COPYING -DestinationPath release\rclone-v1.75.1-termux-local-windows-amd64.zip"
+go build -trimpath -ldflags "-s -w -X github.com/rclone/rclone/fs.Version=v1.75.1-termux-local.1" -tags noselfupdate -o rclone.exe .
+powershell -Command "Compress-Archive -Path rclone.exe,README.md,AGENTS.md,COPYING -DestinationPath release\rclone-v1.75.1-termux-local.1-windows-amd64.zip"
 ```
 
 Verifiziert am 15.09.2026 im `release/`-Ordner: Zip (rclone.exe 84 MB
 gestrippt + README + AGENTS + COPYING) und vier Debs (aarch64/arm/i686/
 x86_64), jedes Binary per String-Check mit dem sftp-ReadMetadata-Support
 (FUTURE.md Stufe 1) belegt.
+
+**Release 2** (Tag `v1.75.1-termux-local.1`): neues Flag
+`--metadata-btime-from <atime|mtime|ctime>` (FUTURE.md „Erweiterung"), alle
+vier Debs neu gebaut, Quell-Sync über robocopy nach
+`termux-packages/sources/rclone` (`/MIR /XD .git .commandcode termux-packages
+termux-packages.wiki release /XF rclone.exe`).
 
 Hinweis: `TestNothingToTransferWithoutEmptyDirs` in `fs/sync` fällt auf
 diesem Windows-Rechner auch **ohne** diese Änderungen durch (per

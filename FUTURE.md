@@ -80,6 +80,15 @@ OpenSSH-sshd** (Termux!) — keine Server-Seite nötig.
 - Tests: Unit-Test mit lokalem `rclone serve sftp`-Roundtrip bzw.
   `fstests`-Muster; Metadata-Map-Inhalte gegen Goldwerte prüfen.
 
+## Erweiterung: `--metadata-btime-from <atime|mtime|ctime>` (Release 2)
+
+**STATUS: umgesetzt (15.09.2026).** Alternative zu `--metadata-btime-from-oldest`:
+`btime` wird aus genau dem gewählten Key gesetzt statt aus dem Minimum aller
+verfügbaren Zeiten. Fehlt der gewählte Key, bleibt `btime` ungesetzt
+(Original-rclone-Verhalten). Beide Flags sind gegenseitig exklusiv
+(Fehler beim Transfer), ungültige Werte werden zurückgewiesen. Unit-Tests
+in `fs/metadata_test.go` (`TestMetadataBtimeFrom`).
+
 ## Stufe 2 — smb-Backend: alle vier Zeitstempel (protokoll-nativ)
 
 SMB2 trägt Creation/Access/Write/Change nativ mit hoher Präzision;

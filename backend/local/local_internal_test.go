@@ -742,10 +742,11 @@ func testMetadata(t *testing.T, r *fstest.Run, o *Object, when time.Time) {
 	f := r.Flocal.(*Fs)
 	features := f.Features()
 
-	var hasXID, hasAtime, hasBtime, canSetXattrOnLinks bool
+	var hasXID, hasAtime, hasBtime, hasCtime, canSetXattrOnLinks bool
 	switch runtime.GOOS {
 	case "darwin", "freebsd", "netbsd", "linux":
 		hasXID, hasAtime, hasBtime = true, true, true
+		hasCtime = runtime.GOOS == "linux"
 		canSetXattrOnLinks = runtime.GOOS != "linux"
 	case "openbsd", "solaris":
 		hasXID, hasAtime = true, true
@@ -818,6 +819,9 @@ func testMetadata(t *testing.T, r *fstest.Run, o *Object, when time.Time) {
 		}
 		if hasBtime && !o.translatedLink { // symlinks generally don't record btime
 			checkTime(m, "btime", when)
+		}
+		if hasCtime && !o.translatedLink {
+			checkTime(m, "ctime", when)
 		}
 		if hasXID {
 			checkInt(m, "uid", 10)

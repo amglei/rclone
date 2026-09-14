@@ -762,6 +762,7 @@ backend may implement.
 | rdev                | Device ID (if special file)  => hexadecimal | 0 |
 | atime               | Time of last access:  RFC 3339 | 2006-01-02T15:04:05.999999999Z07:00 |
 | mtime               | Time of last modification:  RFC 3339 | 2006-01-02T15:04:05.999999999Z07:00 |
+| ctime               | Time of last status change:  RFC 3339 | 2006-01-02T15:04:05.999999999Z07:00 |
 | btime               | Time of file creation (birth):  RFC 3339 | 2006-01-02T15:04:05.999999999Z07:00 |
 | utime               | Time of file upload:  RFC 3339 | 2006-01-02T15:04:05.999999999Z07:00 |
 | cache-control       | Cache-Control header | no-cache |
@@ -2185,6 +2186,16 @@ See the [metadata section](#metadata) for more info.
 Specify value as string in format `key=value` to add metadata `key`
 with value `value` when uploading. This can be repeated as many times
 as required. See the [metadata section](#metadata) for more info.
+
+### --metadata-btime-from-oldest
+
+When using `--metadata`, if the metadata has no `btime` then set it to
+the oldest of `atime`, `mtime` and `ctime`. This is useful when the
+source doesn't record a birth time, for example Android, where the
+oldest known time is the best available approximation of the file's
+creation time.
+
+See the [metadata section](#metadata) for more info.
 
 ### --modify-window Duration
 

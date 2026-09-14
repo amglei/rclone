@@ -101,6 +101,53 @@ func TestMetadataMergeOptions(t *testing.T) {
 	}
 }
 
+func TestMetadataBtimeFromOldest(t *testing.T) {
+	ctx := context.Background()
+	ctx, ci := fs.AddConfig(ctx)
+	ci.Metadata = true
+	ci.MetadataBtimeFromOldest = true
+	now := time.Date(2001, 2, 3, 4, 5, 6, 7, time.UTC)
+	f, err := mockfs.NewFs(ctx, "dstFs", "dstFsRoot", nil)
+	require.NoError(t, err)
+
+	const (
+		atime = "2001-02-03T04:05:06.111111111Z"
+		mtime = "2002-03-04T05:06:07.222222222Z"
+		ctime = "2003-04-05T06:07:08.333333333Z"
+	)
+
+	t.Run("OldestIsAtime", func(t *testing.T) {
+		o := object.NewMemoryObject("file.txt", now, []byte("hello")).WithMetadata(fs.Metadata{
+			"atime": atime,
+			"mtime": mtime,
+			"ctime": ctime,
+		})
+		metadata, err := fs.GetMetadataOptions(ctx, f, o, nil)
+		require.NoError(t, err)
+		assert.Equal(t, atime, metadata["btime"])
+	})
+
+	t.Run("ExistingBtimeKept", func(t *testing.T) {
+		o := object.NewMemoryObject("file.txt", now, []byte("hello")).WithMetadata(fs.Metadata{
+			"atime": atime,
+			"mtime": mtime,
+			"btime": ctime,
+		})
+		metadata, err := fs.GetMetadataOptions(ctx, f, o, nil)
+		require.NoError(t, err)
+		assert.Equal(t, ctime, metadata["btime"])
+	})
+
+	t.Run("OnlyMtime", func(t *testing.T) {
+		o := object.NewMemoryObject("file.txt", now, []byte("hello")).WithMetadata(fs.Metadata{
+			"mtime": mtime,
+		})
+		metadata, err := fs.GetMetadataOptions(ctx, f, o, nil)
+		require.NoError(t, err)
+		assert.Equal(t, mtime, metadata["btime"])
+	})
+}
+
 func TestMetadataMapper(t *testing.T) {
 	ctx := context.Background()
 	ctx, ci := fs.AddConfig(ctx)

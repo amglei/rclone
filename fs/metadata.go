@@ -145,6 +145,30 @@ func metadataMapper(ctx context.Context, cmdLine SpaceSepList, dstFs Fs, o DirEn
 	return out.Metadata, nil
 }
 
+// setBtimeFromOldest returns m with btime set to the oldest of atime, mtime
+// and ctime, unless btime is already set.
+//
+// ctime is never older than mtime so including it rarely changes the result.
+func setBtimeFromOldest(m Metadata) Metadata {
+	if m["btime"] != "" {
+		return m
+	}
+	oldest := time.Time{}
+	for _, key := range []string{"atime", "mtime", "ctime"} {
+		t, err := time.Parse(time.RFC3339Nano, m[key])
+		if err != nil {
+			continue
+		}
+		if oldest.IsZero() || t.Before(oldest) {
+			oldest = t
+		}
+	}
+	if !oldest.IsZero() {
+		m.Set("btime", oldest.Format(time.RFC3339Nano))
+	}
+	return m
+}
+
 // GetMetadataOptions from an DirEntry and merge it with any in options
 //
 // If --metadata isn't in use it will return nil.
@@ -162,6 +186,9 @@ func GetMetadataOptions(ctx context.Context, dstFs Fs, o DirEntry, options []Ope
 		return nil, err
 	}
 	metadata.MergeOptions(options)
+	if ci.MetadataBtimeFromOldest {
+		metadata = setBtimeFromOldest(metadata)
+	}
 	if len(ci.MetadataMapper) != 0 {
 		metadata, err = metadataMapper(ctx, ci.MetadataMapper, dstFs, o, metadata)
 		if err != nil {

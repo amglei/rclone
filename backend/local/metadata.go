@@ -47,6 +47,11 @@ var systemMetadataInfo = map[string]fs.MetadataHelp{
 		Type:    "RFC 3339",
 		Example: "2006-01-02T15:04:05.999999999Z07:00",
 	},
+	"ctime": {
+		Help:    "Time of last status change",
+		Type:    "RFC 3339",
+		Example: "2006-01-02T15:04:05.999999999Z07:00",
+	},
 	"btime": {
 		Help:    "Time of file birth (creation)",
 		Type:    "RFC 3339",

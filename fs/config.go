@@ -546,6 +546,11 @@ var ConfigOptionsInfo = Options{{
 	Help:    "Program to run to transforming metadata before upload",
 	Groups:  "Metadata",
 }, {
+	Name:    "metadata_btime_from_oldest",
+	Default: false,
+	Help:    "Set btime from the oldest of atime, mtime and ctime when btime is missing",
+	Groups:  "Metadata",
+}, {
 	Name:    "partial_suffix",
 	Default: ".partial",
 	Help:    "Add partial-suffix to temporary file name when --inplace is not used",
@@ -677,6 +682,7 @@ type ConfigInfo struct {
 	Inplace                    bool              `config:"inplace"`      // Download directly to destination file instead of atomic download to temp/rename
 	PartialSuffix              string            `config:"partial_suffix"`
 	MetadataMapper             SpaceSepList      `config:"metadata_mapper"`
+	MetadataBtimeFromOldest    bool              `config:"metadata_btime_from_oldest"`
 	MaxConnections             int               `config:"max_connections"`
 	NameTransform              []string          `config:"name_transform"`
 	HTTPProxy                  string            `config:"http_proxy"`
